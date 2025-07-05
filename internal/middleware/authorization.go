@@ -2,29 +2,26 @@ package middleware
 
 import (
 	"context"
+	"errors"
 	"github.com/ctfloyd/hazelmere-commons/pkg/hz_logger"
+	"github.com/golang-jwt/jwt/v5"
 	"net/http"
 	"plutus/internal/auth"
 	"strings"
 )
 
-type Authorizer struct {
+type AuthParser struct {
 	logger hz_logger.Logger
+	secret []byte
 }
 
-func NewAuthorizer(logger hz_logger.Logger) *Authorizer {
-	return &Authorizer{logger}
+func NewAuthParser(logger hz_logger.Logger, secret string) *AuthParser {
+	return &AuthParser{logger, []byte(secret)}
 }
 
-func (a *Authorizer) Authorize(next http.Handler) http.Handler {
+func (a *AuthParser) Parse(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		headerToken := r.Header.Get("Authorization")
-
-		ctx := context.WithValue(r.Context(), auth.ContextKeyToken, "")
-		ctx = context.WithValue(ctx, auth.ContextKeyUserId, "userid")
-		ctx = context.WithValue(ctx, auth.ContextKeyRoles, []string{auth.RoleAdmin})
-		r = r.WithContext(ctx)
-
 		if headerToken == "" {
 			a.logger.Warn(r.Context(), "No authorization header.")
 			next.ServeHTTP(w, r)
@@ -38,9 +35,39 @@ func (a *Authorizer) Authorize(next http.Handler) http.Handler {
 			return
 		}
 
-		// TODO (cfloyd): Make this middleware do the thing.
-		//token := parts[1]
-
+		ctx := a.populateContextWithClaims(r.Context(), parts[1])
+		r = r.WithContext(ctx)
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (a *AuthParser) populateContextWithClaims(ctx context.Context, token string) context.Context {
+	if token == "" {
+		return ctx
+	}
+
+	ctx = context.WithValue(ctx, auth.ContextKeyToken, token)
+	tok, err := jwt.ParseWithClaims(token, &auth.PlutusClaims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			a.logger.WarnArgs(ctx, "Unexpected signing method: %v", token.Header["alg"])
+			return nil, errors.New("unexpected signing method")
+		}
+		return a.secret, nil
+	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS512.Alg()}))
+
+	if err != nil {
+		return ctx
+	}
+
+	if claims, ok := tok.Claims.(*auth.PlutusClaims); ok && tok.Valid {
+		if sub := claims.RegisteredClaims.Subject; sub != "" {
+			ctx = context.WithValue(ctx, auth.ContextKeyUserId, sub)
+		}
+
+		if roles := claims.Roles; roles != nil && len(roles) > 0 {
+			ctx = context.WithValue(ctx, auth.ContextKeyRoles, roles)
+		}
+	}
+
+	return ctx
 }

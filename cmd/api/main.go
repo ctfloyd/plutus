@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"plutus/internal/auth"
 	"plutus/internal/handler"
 	"plutus/internal/middleware"
 	"plutus/internal/user"
@@ -39,18 +40,26 @@ func main() {
 		os.Exit(1)
 	}
 
-	userService := user.NewService(logger)
-	userHandler := user.NewHandler(logger, userService)
+	authorizer := auth.NewAuthorizer(
+		logger,
+		config.BoolValueOrPanic("auth.enforced"),
+		config.ValueOrPanic("auth.jwt.secret"),
+	)
 
-	router := initRouter(logger)
+	jwt, _ := authorizer.GenerateJWT("bob", []string{})
+	logger.InfoArgs(ctx, "Generated JWT: %s", jwt)
+
+	userService := user.NewService(logger)
+	userHandler := user.NewHandler(logger, authorizer, userService)
+
+	router := initRouter(logger, config)
 	handlers := []handler.PlutusHandler{
 		userHandler,
 	}
 	for _, h := range handlers {
 		hCtx := handler.Context{
-			Timeout:    5 * time.Second,
-			Version:    handler.ApiVersionV1,
-			Authorizer: middleware.NewAuthorizer(logger),
+			Timeout: 5 * time.Second,
+			Version: handler.ApiVersionV1,
 		}
 
 		h.RegisterRoutes(router, hCtx)
@@ -82,13 +91,13 @@ func main() {
 	logger.Error(ctx, "Goodbye!")
 }
 
-func initRouter(logger hz_logger.Logger) *chi.Mux {
+func initRouter(logger hz_logger.Logger, config *hz_config.Config) *chi.Mux {
 	router := chi.NewRouter()
 	router.Use(middleware.AllowCors)
 	router.Use(chiWare.Recoverer)
 	router.Use(chiWare.RequestID)
 	router.Use(hz_logger.NewMiddleware(logger).Serve)
-	router.Use(middleware.NewAuthorizer(logger).Authorize)
+	router.Use(middleware.NewAuthParser(logger, config.ValueOrPanic("auth.jwt.secret")).Parse)
 	return router
 }
 

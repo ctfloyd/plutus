@@ -4,15 +4,13 @@ import (
 	"github.com/ctfloyd/hazelmere-commons/pkg/hz_handler"
 	"github.com/go-chi/chi/v5"
 	"net/http"
-	"plutus/internal/middleware"
 	"plutus/internal/service_error"
 	"time"
 )
 
 type Context struct {
-	Timeout    time.Duration
-	Authorizer *middleware.Authorizer
-	Version    ApiVersion
+	Timeout time.Duration
+	Version ApiVersion
 }
 
 type ApiVersion int

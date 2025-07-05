@@ -12,12 +12,13 @@ import (
 )
 
 type Handler struct {
-	logger  hz_logger.Logger
-	service Service
+	logger     hz_logger.Logger
+	authorizer *auth.Authorizer
+	service    Service
 }
 
-func NewHandler(logger hz_logger.Logger, service Service) *Handler {
-	return &Handler{logger: logger, service: service}
+func NewHandler(logger hz_logger.Logger, authorizer *auth.Authorizer, service Service) *Handler {
+	return &Handler{logger: logger, authorizer: authorizer, service: service}
 }
 
 func (uh *Handler) RegisterRoutes(mux *chi.Mux, hctx handler.Context) {
@@ -33,8 +34,7 @@ func (uh *Handler) GetUserById(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	id := chi.URLParam(r, "id")
 
-	// TODO (c.floyd): Pass around an authorizer object that can be disabled.
-	if !auth.IsMeOrRole(ctx, id, auth.RoleAdmin) {
+	if !uh.authorizer.IsMeOrRole(ctx, id, auth.RoleAdmin) {
 		handler.Unauthorized(w)
 		return
 	}

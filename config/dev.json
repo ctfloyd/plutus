@@ -2,6 +2,12 @@
   "log": {
     "level": "TRACE"
   },
+  "auth": {
+    "enforced": true,
+    "jwt": {
+      "secret": "{{JWT_SECRET}}"
+    }
+  },
   "database": {
     "url": "{{DATABASE_URL}}",
     "max_connections": 10,
