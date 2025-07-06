@@ -36,6 +36,11 @@ func (uh *Handler) RegisterRoutes(mux *chi.Mux, hctx handler.Context) {
 func (uh *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	if !uh.authorizer.HasRole(ctx, auth.RoleAdmin) {
+		handler.Unauthorized(ctx, w)
+		return
+	}
+
 	var request plutus.CreateUserRequest
 	if ok := handler.ReadBody(w, r, &request); !ok {
 		return
