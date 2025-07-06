@@ -17,8 +17,8 @@ import (
 	"plutus/internal/common/handler"
 	"plutus/internal/common/middleware"
 	"plutus/internal/common/transaction"
+	"plutus/internal/core/user"
 	"plutus/internal/gen/db"
-	"plutus/internal/user"
 	"syscall"
 	"time"
 )
