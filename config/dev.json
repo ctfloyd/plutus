@@ -3,7 +3,7 @@
     "level": "TRACE"
   },
   "auth": {
-    "enforced": true,
+    "enforced": false,
     "jwt": {
       "secret": "{{JWT_SECRET}}"
     }

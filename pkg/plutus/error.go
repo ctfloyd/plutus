@@ -1,4 +1,4 @@
-package api
+package plutus
 
 const (
 	ErrorCodeInternal     = "INTERNAL_SERVICE_ERROR"

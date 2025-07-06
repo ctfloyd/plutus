@@ -5,6 +5,8 @@
 package db
 
 import (
+	"time"
+
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -12,7 +14,7 @@ type Auth struct {
 	UserID       string
 	PasswordHash []byte
 	Salt         []byte
-	CreatedAt    pgtype.Timestamptz
+	CreatedAt    time.Time
 }
 
 type InventoryTx struct {
@@ -23,15 +25,15 @@ type InventoryTx struct {
 	LocationID pgtype.Text
 	Action     string
 	Quantity   pgtype.Numeric
-	OccurredAt pgtype.Timestamptz
+	OccurredAt time.Time
 }
 
 type Location struct {
 	ID          string
 	Name        string
 	Description string
-	CreatedAt   pgtype.Timestamptz
-	UpdatedAt   pgtype.Timestamptz
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 type Product struct {
@@ -39,8 +41,8 @@ type Product struct {
 	Name        string
 	Description string
 	ImageUrl    string
-	CreatedAt   pgtype.Timestamptz
-	UpdatedAt   pgtype.Timestamptz
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 type ProductUnit struct {
@@ -55,6 +57,6 @@ type User struct {
 	FirstName string
 	LastName  string
 	Email     string
-	CreatedAt pgtype.Timestamptz
-	UpdatedAt pgtype.Timestamptz
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }

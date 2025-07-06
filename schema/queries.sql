@@ -6,8 +6,8 @@ VALUES ($1, $2, $3, $4, $5, $6)
 -- name: GetUser :one
 SELECT * FROM users WHERE id = $1;
 
--- name: GetUserByEmail :one
-SELECT * FROM users WHERE email = $1;
+-- name: IsEmailTaken :one
+SELECT EXISTS(SELECT 1 FROM users where email = $1);
 
 -- name: ListUsers :many
 SELECT * FROM users ORDER BY created_at DESC;

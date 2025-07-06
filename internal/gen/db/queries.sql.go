@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -55,7 +56,7 @@ type CreateAuthParams struct {
 	UserID       string
 	PasswordHash []byte
 	Salt         []byte
-	CreatedAt    pgtype.Timestamptz
+	CreatedAt    time.Time
 }
 
 // ============================================================================
@@ -93,7 +94,7 @@ type CreateInventoryTxParams struct {
 	LocationID pgtype.Text
 	Action     string
 	Quantity   pgtype.Numeric
-	OccurredAt pgtype.Timestamptz
+	OccurredAt time.Time
 }
 
 // ============================================================================
@@ -135,8 +136,8 @@ type CreateLocationParams struct {
 	ID          string
 	Name        string
 	Description string
-	CreatedAt   pgtype.Timestamptz
-	UpdatedAt   pgtype.Timestamptz
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 // ============================================================================
@@ -173,8 +174,8 @@ type CreateProductParams struct {
 	Name        string
 	Description string
 	ImageUrl    string
-	CreatedAt   pgtype.Timestamptz
-	UpdatedAt   pgtype.Timestamptz
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 // ============================================================================
@@ -246,8 +247,8 @@ type CreateUserParams struct {
 	FirstName string
 	LastName  string
 	Email     string
-	CreatedAt pgtype.Timestamptz
-	UpdatedAt pgtype.Timestamptz
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
@@ -717,7 +718,7 @@ type GetInventoryTxWithDetailsRow struct {
 	LocationID          pgtype.Text
 	Action              string
 	Quantity            pgtype.Numeric
-	OccurredAt          pgtype.Timestamptz
+	OccurredAt          time.Time
 	FirstName           string
 	LastName            string
 	Email               string
@@ -793,7 +794,7 @@ type GetInventoryTxWithDetailsByUserIdRow struct {
 	LocationID          pgtype.Text
 	Action              string
 	Quantity            pgtype.Numeric
-	OccurredAt          pgtype.Timestamptz
+	OccurredAt          time.Time
 	FirstName           string
 	LastName            string
 	Email               string
@@ -980,8 +981,8 @@ type GetProductWithUnitsRow struct {
 	Name        string
 	Description string
 	ImageUrl    string
-	CreatedAt   pgtype.Timestamptz
-	UpdatedAt   pgtype.Timestamptz
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 	Units       interface{}
 }
 
@@ -1018,24 +1019,6 @@ func (q *Queries) GetUser(ctx context.Context, id string) (User, error) {
 	return i, err
 }
 
-const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, first_name, last_name, email, created_at, updated_at FROM users WHERE email = $1
-`
-
-func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
-	row := q.db.QueryRow(ctx, getUserByEmail, email)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.FirstName,
-		&i.LastName,
-		&i.Email,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
 const getUserWithAuth = `-- name: GetUserWithAuth :one
 
 SELECT
@@ -1052,8 +1035,8 @@ type GetUserWithAuthRow struct {
 	FirstName    string
 	LastName     string
 	Email        string
-	CreatedAt    pgtype.Timestamptz
-	UpdatedAt    pgtype.Timestamptz
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 	PasswordHash []byte
 	Salt         []byte
 }
@@ -1075,6 +1058,17 @@ func (q *Queries) GetUserWithAuth(ctx context.Context, id string) (GetUserWithAu
 		&i.Salt,
 	)
 	return i, err
+}
+
+const isEmailTaken = `-- name: IsEmailTaken :one
+SELECT EXISTS(SELECT 1 FROM users where email = $1)
+`
+
+func (q *Queries) IsEmailTaken(ctx context.Context, email string) (bool, error) {
+	row := q.db.QueryRow(ctx, isEmailTaken, email)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const listAuth = `-- name: ListAuth :many
@@ -1417,7 +1411,7 @@ type UpdateInventoryTxParams struct {
 	ID         string
 	Action     string
 	Quantity   pgtype.Numeric
-	OccurredAt pgtype.Timestamptz
+	OccurredAt time.Time
 }
 
 func (q *Queries) UpdateInventoryTx(ctx context.Context, arg UpdateInventoryTxParams) (InventoryTx, error) {
@@ -1452,7 +1446,7 @@ type UpdateLocationParams struct {
 	ID          string
 	Name        string
 	Description string
-	UpdatedAt   pgtype.Timestamptz
+	UpdatedAt   time.Time
 }
 
 func (q *Queries) UpdateLocation(ctx context.Context, arg UpdateLocationParams) (Location, error) {
@@ -1485,7 +1479,7 @@ type UpdateProductParams struct {
 	Name        string
 	Description string
 	ImageUrl    string
-	UpdatedAt   pgtype.Timestamptz
+	UpdatedAt   time.Time
 }
 
 func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) (Product, error) {
@@ -1545,7 +1539,7 @@ type UpdateUserParams struct {
 	FirstName string
 	LastName  string
 	Email     string
-	UpdatedAt pgtype.Timestamptz
+	UpdatedAt time.Time
 }
 
 func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error) {

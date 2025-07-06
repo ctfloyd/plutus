@@ -2,11 +2,11 @@ package middleware
 
 import (
 	"context"
-	"errors"
+	"github.com/cockroachdb/errors"
 	"github.com/ctfloyd/hazelmere-commons/pkg/hz_logger"
 	"github.com/golang-jwt/jwt/v5"
 	"net/http"
-	"plutus/internal/auth"
+	"plutus/internal/common/auth"
 	"strings"
 )
 

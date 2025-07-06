@@ -13,9 +13,11 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"plutus/internal/auth"
-	"plutus/internal/handler"
-	"plutus/internal/middleware"
+	"plutus/internal/common/auth"
+	"plutus/internal/common/handler"
+	"plutus/internal/common/middleware"
+	"plutus/internal/common/transaction"
+	"plutus/internal/gen/db"
 	"plutus/internal/user"
 	"syscall"
 	"time"
@@ -34,7 +36,7 @@ func main() {
 
 	logger.Info(ctx, "Initializing plutus api.")
 
-	_, err := initPostgresPool(ctx, config)
+	pool, err := initPostgresPool(ctx, config)
 	if err != nil {
 		logger.ErrorArgs(ctx, "Failed to init postgres pool: %s", err)
 		os.Exit(1)
@@ -46,10 +48,11 @@ func main() {
 		config.ValueOrPanic("auth.jwt.secret"),
 	)
 
-	jwt, _ := authorizer.GenerateJWT("bob", []string{})
-	logger.InfoArgs(ctx, "Generated JWT: %s", jwt)
+	txMgr := transaction.NewManager(pool)
+	queries := db.New(pool)
 
-	userService := user.NewService(logger)
+	userRepo := user.NewRdsRepository(queries, txMgr)
+	userService := user.NewService(logger, txMgr, userRepo)
 	userHandler := user.NewHandler(logger, authorizer, userService)
 
 	router := initRouter(logger, config)
