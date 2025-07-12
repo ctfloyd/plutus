@@ -12,39 +12,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const countInventoryTxByLocation = `-- name: CountInventoryTxByLocation :one
-SELECT COUNT(*) FROM inventory_tx WHERE location_id = $1
-`
-
-func (q *Queries) CountInventoryTxByLocation(ctx context.Context, locationID pgtype.Text) (int64, error) {
-	row := q.db.QueryRow(ctx, countInventoryTxByLocation, locationID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
-const countInventoryTxByProduct = `-- name: CountInventoryTxByProduct :one
-SELECT COUNT(*) FROM inventory_tx WHERE product_id = $1
-`
-
-func (q *Queries) CountInventoryTxByProduct(ctx context.Context, productID pgtype.Text) (int64, error) {
-	row := q.db.QueryRow(ctx, countInventoryTxByProduct, productID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
-const countInventoryTxByUser = `-- name: CountInventoryTxByUser :one
-SELECT COUNT(*) FROM inventory_tx WHERE user_id = $1
-`
-
-func (q *Queries) CountInventoryTxByUser(ctx context.Context, userID pgtype.Text) (int64, error) {
-	row := q.db.QueryRow(ctx, countInventoryTxByUser, userID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const createAuth = `-- name: CreateAuth :one
 
 INSERT INTO auth (user_id, password_hash, salt, created_at)
@@ -88,10 +55,10 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 
 type CreateInventoryTxParams struct {
 	ID         string
-	UserID     pgtype.Text
-	ProductID  pgtype.Text
-	UnitID     pgtype.Text
-	LocationID pgtype.Text
+	UserID     *string
+	ProductID  *string
+	UnitID     *string
+	LocationID *string
 	Action     string
 	Quantity   pgtype.Numeric
 	OccurredAt time.Time
@@ -211,7 +178,7 @@ VALUES ($1, $2, $3, $4)
 
 type CreateProductUnitParams struct {
 	ID          string
-	ProductID   pgtype.Text
+	ProductID   *string
 	Unit        string
 	DefaultUnit bool
 }
@@ -232,6 +199,33 @@ func (q *Queries) CreateProductUnit(ctx context.Context, arg CreateProductUnitPa
 		&i.ProductID,
 		&i.Unit,
 		&i.DefaultUnit,
+	)
+	return i, err
+}
+
+const createToken = `-- name: CreateToken :one
+INSERT INTO token (token, user_id, revoked)
+VALUES ($1, $2, $3)
+RETURNING token, user_id, revoked, created_at
+`
+
+type CreateTokenParams struct {
+	Token   string
+	UserID  string
+	Revoked bool
+}
+
+// ============================================================================
+// TOKEN QUERIES
+// ============================================================================
+func (q *Queries) CreateToken(ctx context.Context, arg CreateTokenParams) (Token, error) {
+	row := q.db.QueryRow(ctx, createToken, arg.Token, arg.UserID, arg.Revoked)
+	var i Token
+	err := row.Scan(
+		&i.Token,
+		&i.UserID,
+		&i.Revoked,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -314,6 +308,16 @@ DELETE FROM product_unit WHERE id = $1
 
 func (q *Queries) DeleteProductUnit(ctx context.Context, id string) error {
 	_, err := q.db.Exec(ctx, deleteProductUnit, id)
+	return err
+}
+
+const deleteToken = `-- name: DeleteToken :exec
+DELETE FROM token
+WHERE token = $1
+`
+
+func (q *Queries) DeleteToken(ctx context.Context, token string) error {
+	_, err := q.db.Exec(ctx, deleteToken, token)
 	return err
 }
 
@@ -527,7 +531,7 @@ const getDefaultProductUnit = `-- name: GetDefaultProductUnit :one
 SELECT id, product_id, unit, default_unit FROM product_unit WHERE product_id = $1 AND default_unit = true
 `
 
-func (q *Queries) GetDefaultProductUnit(ctx context.Context, productID pgtype.Text) (ProductUnit, error) {
+func (q *Queries) GetDefaultProductUnit(ctx context.Context, productID *string) (ProductUnit, error) {
 	row := q.db.QueryRow(ctx, getDefaultProductUnit, productID)
 	var i ProductUnit
 	err := row.Scan(
@@ -596,7 +600,7 @@ const getInventoryTxByLocationId = `-- name: GetInventoryTxByLocationId :many
 SELECT id, user_id, product_id, unit_id, location_id, action, quantity, occurred_at FROM inventory_tx WHERE location_id = $1 ORDER BY occurred_at DESC
 `
 
-func (q *Queries) GetInventoryTxByLocationId(ctx context.Context, locationID pgtype.Text) ([]InventoryTx, error) {
+func (q *Queries) GetInventoryTxByLocationId(ctx context.Context, locationID *string) ([]InventoryTx, error) {
 	rows, err := q.db.Query(ctx, getInventoryTxByLocationId, locationID)
 	if err != nil {
 		return nil, err
@@ -629,7 +633,7 @@ const getInventoryTxByProductId = `-- name: GetInventoryTxByProductId :many
 SELECT id, user_id, product_id, unit_id, location_id, action, quantity, occurred_at FROM inventory_tx WHERE product_id = $1 ORDER BY occurred_at DESC
 `
 
-func (q *Queries) GetInventoryTxByProductId(ctx context.Context, productID pgtype.Text) ([]InventoryTx, error) {
+func (q *Queries) GetInventoryTxByProductId(ctx context.Context, productID *string) ([]InventoryTx, error) {
 	rows, err := q.db.Query(ctx, getInventoryTxByProductId, productID)
 	if err != nil {
 		return nil, err
@@ -662,7 +666,7 @@ const getInventoryTxByUserId = `-- name: GetInventoryTxByUserId :many
 SELECT id, user_id, product_id, unit_id, location_id, action, quantity, occurred_at FROM inventory_tx WHERE user_id = $1 ORDER BY occurred_at DESC
 `
 
-func (q *Queries) GetInventoryTxByUserId(ctx context.Context, userID pgtype.Text) ([]InventoryTx, error) {
+func (q *Queries) GetInventoryTxByUserId(ctx context.Context, userID *string) ([]InventoryTx, error) {
 	rows, err := q.db.Query(ctx, getInventoryTxByUserId, userID)
 	if err != nil {
 		return nil, err
@@ -712,10 +716,10 @@ ORDER BY it.occurred_at DESC
 
 type GetInventoryTxWithDetailsRow struct {
 	ID                  string
-	UserID              pgtype.Text
-	ProductID           pgtype.Text
-	UnitID              pgtype.Text
-	LocationID          pgtype.Text
+	UserID              *string
+	ProductID           *string
+	UnitID              *string
+	LocationID          *string
 	Action              string
 	Quantity            pgtype.Numeric
 	OccurredAt          time.Time
@@ -788,10 +792,10 @@ ORDER BY it.occurred_at DESC
 
 type GetInventoryTxWithDetailsByUserIdRow struct {
 	ID                  string
-	UserID              pgtype.Text
-	ProductID           pgtype.Text
-	UnitID              pgtype.Text
-	LocationID          pgtype.Text
+	UserID              *string
+	ProductID           *string
+	UnitID              *string
+	LocationID          *string
 	Action              string
 	Quantity            pgtype.Numeric
 	OccurredAt          time.Time
@@ -805,7 +809,7 @@ type GetInventoryTxWithDetailsByUserIdRow struct {
 	LocationDescription string
 }
 
-func (q *Queries) GetInventoryTxWithDetailsByUserId(ctx context.Context, userID pgtype.Text) ([]GetInventoryTxWithDetailsByUserIdRow, error) {
+func (q *Queries) GetInventoryTxWithDetailsByUserId(ctx context.Context, userID *string) ([]GetInventoryTxWithDetailsByUserIdRow, error) {
 	rows, err := q.db.Query(ctx, getInventoryTxWithDetailsByUserId, userID)
 	if err != nil {
 		return nil, err
@@ -932,7 +936,7 @@ const getProductUnitsByProductId = `-- name: GetProductUnitsByProductId :many
 SELECT id, product_id, unit, default_unit FROM product_unit WHERE product_id = $1 ORDER BY default_unit DESC, unit ASC
 `
 
-func (q *Queries) GetProductUnitsByProductId(ctx context.Context, productID pgtype.Text) ([]ProductUnit, error) {
+func (q *Queries) GetProductUnitsByProductId(ctx context.Context, productID *string) ([]ProductUnit, error) {
 	rows, err := q.db.Query(ctx, getProductUnitsByProductId, productID)
 	if err != nil {
 		return nil, err
@@ -957,46 +961,19 @@ func (q *Queries) GetProductUnitsByProductId(ctx context.Context, productID pgty
 	return items, nil
 }
 
-const getProductWithUnits = `-- name: GetProductWithUnits :one
-SELECT
-    p.id, p.name, p.description, p.image_url, p.created_at, p.updated_at,
-    COALESCE(
-            json_agg(
-                    json_build_object(
-                            'id', pu.id,
-                            'unit', pu.unit,
-                            'default_unit', pu.default_unit
-                    )
-            ) FILTER (WHERE pu.id IS NOT NULL),
-            '[]'
-    ) as units
-FROM product p
-         LEFT JOIN product_unit pu ON p.id = pu.product_id
-WHERE p.id = $1
-GROUP BY p.id, p.name, p.description, p.image_url, p.created_at, p.updated_at
+const getToken = `-- name: GetToken :one
+SELECT token, user_id, revoked, created_at FROM token
+WHERE token = $1
 `
 
-type GetProductWithUnitsRow struct {
-	ID          string
-	Name        string
-	Description string
-	ImageUrl    string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	Units       interface{}
-}
-
-func (q *Queries) GetProductWithUnits(ctx context.Context, id string) (GetProductWithUnitsRow, error) {
-	row := q.db.QueryRow(ctx, getProductWithUnits, id)
-	var i GetProductWithUnitsRow
+func (q *Queries) GetToken(ctx context.Context, token string) (Token, error) {
+	row := q.db.QueryRow(ctx, getToken, token)
+	var i Token
 	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Description,
-		&i.ImageUrl,
+		&i.Token,
+		&i.UserID,
+		&i.Revoked,
 		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.Units,
 	)
 	return i, err
 }
@@ -1019,34 +996,13 @@ func (q *Queries) GetUser(ctx context.Context, id string) (User, error) {
 	return i, err
 }
 
-const getUserWithAuth = `-- name: GetUserWithAuth :one
-
-SELECT
-    u.id, u.first_name, u.last_name, u.email, u.created_at, u.updated_at,
-    a.password_hash,
-    a.salt
-FROM users u
-         LEFT JOIN auth a ON u.id = a.user_id
-WHERE u.id = $1
+const getUserByEmail = `-- name: GetUserByEmail :one
+SELECT id, first_name, last_name, email, created_at, updated_at FROM users where email = $1
 `
 
-type GetUserWithAuthRow struct {
-	ID           string
-	FirstName    string
-	LastName     string
-	Email        string
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-	PasswordHash []byte
-	Salt         []byte
-}
-
-// ============================================================================
-// UTILITY QUERIES
-// ============================================================================
-func (q *Queries) GetUserWithAuth(ctx context.Context, id string) (GetUserWithAuthRow, error) {
-	row := q.db.QueryRow(ctx, getUserWithAuth, id)
-	var i GetUserWithAuthRow
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByEmail, email)
+	var i User
 	err := row.Scan(
 		&i.ID,
 		&i.FirstName,
@@ -1054,8 +1010,6 @@ func (q *Queries) GetUserWithAuth(ctx context.Context, id string) (GetUserWithAu
 		&i.Email,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.PasswordHash,
-		&i.Salt,
 	)
 	return i, err
 }
@@ -1294,6 +1248,28 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 	return items, nil
 }
 
+const revokeAllUserTokens = `-- name: RevokeAllUserTokens :exec
+UPDATE token
+SET revoked = true
+WHERE user_id = $1
+`
+
+func (q *Queries) RevokeAllUserTokens(ctx context.Context, userID string) error {
+	_, err := q.db.Exec(ctx, revokeAllUserTokens, userID)
+	return err
+}
+
+const revokeToken = `-- name: RevokeToken :exec
+UPDATE token
+SET revoked = true
+WHERE token = $1
+`
+
+func (q *Queries) RevokeToken(ctx context.Context, token string) error {
+	_, err := q.db.Exec(ctx, revokeToken, token)
+	return err
+}
+
 const searchLocations = `-- name: SearchLocations :many
 SELECT id, name, description, created_at, updated_at FROM location
 WHERE name ILIKE $1 OR description ILIKE $1
@@ -1366,7 +1342,7 @@ WHERE product_id = $1
 `
 
 type SetProductUnitAsDefaultParams struct {
-	ProductID pgtype.Text
+	ProductID *string
 	ID        string
 }
 

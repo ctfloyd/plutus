@@ -14,6 +14,13 @@ create table auth (
     created_at timestamptz not null default current_timestamp
 );
 
+create table token (
+    token varchar(2048) not null primary key,
+    user_id varchar(26) not null references users(id),
+    revoked bool not null,
+    created_at timestamptz not null default current_timestamp
+);
+
 create table product (
     id varchar(26) primary key,
     name varchar(256) not null,

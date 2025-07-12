@@ -9,6 +9,10 @@ type GetUserByIdResponse struct {
 	Meta Meta `json:"meta"`
 }
 
+type GetUserByEmailResponse struct {
+	User User `json:"user"`
+	Meta Meta `json:"meta"`
+}
 type CreateUserRequest struct {
 	Email     string `json:"email"`
 	FirstName string `json:"first_name"`

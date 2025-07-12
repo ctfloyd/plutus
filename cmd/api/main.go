@@ -17,6 +17,7 @@ import (
 	"plutus/internal/common/handler"
 	"plutus/internal/common/middleware"
 	"plutus/internal/common/transaction"
+	coreauth "plutus/internal/core/auth"
 	"plutus/internal/core/user"
 	"plutus/internal/gen/db"
 	"syscall"
@@ -55,9 +56,14 @@ func main() {
 	userService := user.NewService(logger, txMgr, userRepo)
 	userHandler := user.NewHandler(logger, authorizer, userService)
 
+	authRepo := coreauth.NewRdsRepository(queries, txMgr)
+	authService := coreauth.NewService(logger, txMgr, authRepo, userService, authorizer, 15, 16)
+	authHandler := coreauth.NewHandler(logger, authorizer, authService)
+
 	router := initRouter(logger, config)
 	handlers := []handler.PlutusHandler{
 		userHandler,
+		authHandler,
 	}
 	for _, h := range handlers {
 		hCtx := handler.Context{

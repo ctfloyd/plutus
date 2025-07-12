@@ -16,7 +16,9 @@ const (
 type Role = string
 
 const (
-	RoleAdmin Role = "x-plutus-admin"
+	RoleAdmin Role   = "x-plutus-admin"
+	RoleUser  Role   = "x-plutus-user"
+	Issuer    string = "plutus"
 )
 
 type PlutusClaims struct {
@@ -34,18 +36,32 @@ func NewAuthorizer(logger hz_logger.Logger, enforceAuth bool, secret string) *Au
 	return &Authorizer{logger: logger, enforceAuth: enforceAuth, secret: []byte(secret)}
 }
 
-func (a *Authorizer) GenerateJWT(userId string, roles []string) (string, error) {
+func (a *Authorizer) GenerateAuthenticationToken(userId string, roles []string) (string, error) {
 	return jwt.NewWithClaims(
 		jwt.SigningMethodHS512,
 		&PlutusClaims{
 			RegisteredClaims: jwt.RegisteredClaims{
-				Issuer:    "plutus",
+				Issuer:    Issuer,
 				Subject:   userId,
 				Audience:  []string{"user"},
 				ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
 				IssuedAt:  jwt.NewNumericDate(time.Now()),
 			},
 			Roles: roles,
+		}).SignedString(a.secret)
+}
+
+func (a *Authorizer) GenerateRefreshToken(userId string) (string, error) {
+	return jwt.NewWithClaims(
+		jwt.SigningMethodHS512,
+		&PlutusClaims{
+			RegisteredClaims: jwt.RegisteredClaims{
+				Issuer:    Issuer,
+				Subject:   userId,
+				Audience:  []string{"user"},
+				ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * 30 * time.Hour)),
+				IssuedAt:  jwt.NewNumericDate(time.Now()),
+			},
 		}).SignedString(a.secret)
 }
 

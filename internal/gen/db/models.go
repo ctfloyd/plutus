@@ -19,10 +19,10 @@ type Auth struct {
 
 type InventoryTx struct {
 	ID         string
-	UserID     pgtype.Text
-	ProductID  pgtype.Text
-	UnitID     pgtype.Text
-	LocationID pgtype.Text
+	UserID     *string
+	ProductID  *string
+	UnitID     *string
+	LocationID *string
 	Action     string
 	Quantity   pgtype.Numeric
 	OccurredAt time.Time
@@ -47,9 +47,16 @@ type Product struct {
 
 type ProductUnit struct {
 	ID          string
-	ProductID   pgtype.Text
+	ProductID   *string
 	Unit        string
 	DefaultUnit bool
+}
+
+type Token struct {
+	Token     string
+	UserID    string
+	Revoked   bool
+	CreatedAt time.Time
 }
 
 type User struct {

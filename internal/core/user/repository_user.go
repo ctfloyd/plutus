@@ -10,6 +10,7 @@ import (
 type Repository interface {
 	IsEmailTaken(ctx context.Context, email string) (bool, error)
 	GetUserById(ctx context.Context, id string) (db.User, error)
+	GetUserByEmail(ctx context.Context, email string) (db.User, error)
 	InsertUser(ctx context.Context, user db.CreateUserParams) (db.User, error)
 	UpdateUser(ctx context.Context, user db.UpdateUserParams) (db.User, error)
 }
@@ -30,6 +31,11 @@ func (r *RdsRepository) IsEmailTaken(ctx context.Context, email string) (bool, e
 
 func (r *RdsRepository) GetUserById(ctx context.Context, id string) (db.User, error) {
 	data, err := r.getQueries(ctx).GetUser(ctx, id)
+	return data, errors.WithStack(err)
+}
+
+func (r *RdsRepository) GetUserByEmail(ctx context.Context, id string) (db.User, error) {
+	data, err := r.getQueries(ctx).GetUserByEmail(ctx, id)
 	return data, errors.WithStack(err)
 }
 

@@ -18,7 +18,9 @@ var (
 
 type Service interface {
 	GetUserById(ctx context.Context, id string) (plutus.GetUserByIdResponse, error)
+	GetUserByEmail(ctx context.Context, email string) (plutus.GetUserByEmailResponse, error)
 	CreateUser(ctx context.Context, request plutus.CreateUserRequest) (plutus.CreateUserResponse, error)
+	IsEmailTaken(ctx context.Context, email string) (bool, error)
 }
 
 type DefaultService struct {
@@ -29,6 +31,39 @@ type DefaultService struct {
 
 func NewService(logger hz_logger.Logger, txMgr *transaction.Manager, repository Repository) *DefaultService {
 	return &DefaultService{logger: logger, txMgr: txMgr, repository: repository}
+}
+
+func (s *DefaultService) GetUserByEmail(ctx context.Context, email string) (plutus.GetUserByEmailResponse, error) {
+	var user db.User
+	var err error
+	f := func(ctx context.Context) error {
+		user, err = s.repository.GetUserByEmail(ctx, email)
+		return err
+	}
+
+	if err := s.txMgr.WithTransaction(ctx, f); err != nil {
+		return plutus.GetUserByEmailResponse{}, errors.WithStack(err)
+	}
+
+	return plutus.GetUserByEmailResponse{
+		User: s.convertToApi(user),
+		Meta: meta.Generate(ctx),
+	}, nil
+}
+
+func (s *DefaultService) IsEmailTaken(ctx context.Context, email string) (bool, error) {
+	var taken bool
+	var err error
+	f := func(ctx context.Context) error {
+		taken, err = s.repository.IsEmailTaken(ctx, email)
+		return err
+	}
+
+	if err := s.txMgr.WithTransaction(ctx, f); err != nil {
+		return true, errors.WithStack(err)
+	}
+
+	return taken, err
 }
 
 func (s *DefaultService) GetUserById(ctx context.Context, id string) (plutus.GetUserByIdResponse, error) {

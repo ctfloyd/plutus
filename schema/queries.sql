@@ -6,6 +6,9 @@ VALUES ($1, $2, $3, $4, $5, $6)
 -- name: GetUser :one
 SELECT * FROM users WHERE id = $1;
 
+-- name: GetUserByEmail :one
+SELECT * FROM users where email = $1;
+
 -- name: IsEmailTaken :one
 SELECT EXISTS(SELECT 1 FROM users where email = $1);
 
@@ -278,41 +281,27 @@ WHERE id = $1
 DELETE FROM inventory_tx WHERE id = $1;
 
 -- ============================================================================
--- UTILITY QUERIES
+-- TOKEN QUERIES
 -- ============================================================================
+-- name: CreateToken :one
+INSERT INTO token (token, user_id, revoked)
+VALUES ($1, $2, $3)
+RETURNING *;
 
--- name: GetUserWithAuth :one
-SELECT
-    u.*,
-    a.password_hash,
-    a.salt
-FROM users u
-         LEFT JOIN auth a ON u.id = a.user_id
-WHERE u.id = $1;
+-- name: GetToken :one
+SELECT * FROM token
+WHERE token = $1;
 
--- name: GetProductWithUnits :one
-SELECT
-    p.*,
-    COALESCE(
-            json_agg(
-                    json_build_object(
-                            'id', pu.id,
-                            'unit', pu.unit,
-                            'default_unit', pu.default_unit
-                    )
-            ) FILTER (WHERE pu.id IS NOT NULL),
-            '[]'
-    ) as units
-FROM product p
-         LEFT JOIN product_unit pu ON p.id = pu.product_id
-WHERE p.id = $1
-GROUP BY p.id, p.name, p.description, p.image_url, p.created_at, p.updated_at;
+-- name: RevokeToken :exec
+UPDATE token
+SET revoked = true
+WHERE token = $1;
 
--- name: CountInventoryTxByUser :one
-SELECT COUNT(*) FROM inventory_tx WHERE user_id = $1;
+-- name: RevokeAllUserTokens :exec
+UPDATE token
+SET revoked = true
+WHERE user_id = $1;
 
--- name: CountInventoryTxByProduct :one
-SELECT COUNT(*) FROM inventory_tx WHERE product_id = $1;
-
--- name: CountInventoryTxByLocation :one
-SELECT COUNT(*) FROM inventory_tx WHERE location_id = $1;
+-- name: DeleteToken :exec
+DELETE FROM token
+WHERE token = $1;
